@@ -1,0 +1,44 @@
+.construction-site{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:#f6f6f3;--site-ink:#7b7161}
+.workflow-world{position:absolute;left:0;top:0;width:3000px;height:1800px;transform-origin:0 0;pointer-events:none;opacity:0;transition:opacity 200ms ease}
+.construction-site[data-ready='true'] .workflow-world{opacity:1}
+.site-part{position:absolute;display:block;overflow:hidden;pointer-events:none}
+.site-sprite{position:absolute;display:block;background-size:100% 100%;background-repeat:no-repeat;user-select:none}
+.site-joint{position:absolute;left:0;top:0;transform-origin:0 0}
+.site-structure{opacity:.27}.site-crane{opacity:.43}.site-excavation{opacity:.4}.site-truck{opacity:.4}.site-grading{opacity:.48}
+.site-cables{position:absolute;inset:0;width:1600px;height:1000px;stroke:var(--site-ink);stroke-width:2;fill:none}
+.roller-tire{position:absolute;left:-1px;top:92px;width:128px;height:128px;transform-origin:center}
+.roller-drum{position:absolute;left:269px;top:92px;width:128px;height:128px;transform-origin:center}
+.site-rig-defs{position:absolute;pointer-events:none}
+.truck-ink{filter:url(#truck-ink)}
+.truck-wheel{position:absolute;transform-origin:center;border-radius:50%;overflow:hidden}
+.truck-hydraulics{position:absolute;left:0;top:0;width:400px;height:220px;stroke:#656b62;stroke-linecap:round;fill:none}
+.truck-hydraulics>line:last-child{stroke:#8c9189}
+.workflow-source{position:absolute;left:590px;top:820px;width:230px;height:80px;transform-origin:center bottom}
+.workflow-cables{position:absolute;inset:0;width:3000px;height:1800px;stroke:var(--site-ink);stroke-width:2;fill:none;opacity:.5}
+.workflow-cargo{opacity:.6}
+.workflow-cargo-fill{position:absolute;left:5px;top:-86px;width:222px;height:58px;overflow:hidden}
+.workflow-cargo-load{position:absolute;left:5px;bottom:0;width:212px;height:48px;transform-origin:center bottom}
+.workflow-placement,.workflow-particle{opacity:.45}
+.workflow-fill{position:absolute;left:1480px;top:1450px;width:280px;height:70px}
+.workflow-pile{position:absolute;inset:0;transform-origin:center bottom}
+.workflow-flat{position:absolute;left:1480px;top:1500px;width:280px;height:40px}
+.workflow-platform{position:absolute;left:-20px;top:-10px;width:260px;height:30px;transform-origin:20px 10px;stroke:#656b62;stroke-width:3;fill:none}
+body:has(.construction-site)>header,body:has(.construction-site)>main,body:has(.construction-site)>footer{position:relative;z-index:1}
+body:has(.construction-site)>header{background:rgba(246,246,243,.88)}
+body:has(.construction-site)>main{background:linear-gradient(90deg,rgba(246,246,243,.58),rgba(246,246,243,.68) 42%,rgba(246,246,243,.14))}
+main>.hero#home{display:block;min-height:730px;padding-top:90px}
+.hero#home>div:not(.hero-foot){max-width:850px}
+.hero#home h1{font-size:clamp(54px,7.2vw,112px);max-width:1000px;letter-spacing:-5px;line-height:1.02;margin:30px 0 34px}
+.hero#home .intro,.hero#home .availability{max-width:550px}
+.hero#home .hero-foot{margin-top:75px}
+body:has(.construction-site) .ai{background:rgba(246,246,243,.42);color:var(--foreground);border-block:1px solid var(--border)}
+body:has(.construction-site) .ai p{color:#62665e}
+body:has(.construction-site) .ai .eyebrow{color:var(--primary)}
+body:has(.construction-site) .ai .card-top{color:#62665e}
+body:has(.construction-site) .ai .pending{border-color:var(--border)}
+body:has(.construction-site) .ai .pending{color:#62665e}
+body:has(.construction-site) .ai-link:hover{color:var(--primary)}
+body:has(.construction-site)>footer{background:rgba(246,246,243,.75)}
+@media(max-width:760px){main>.hero#home{min-height:0;padding-top:48px}.hero#home h1{font-size:clamp(49px,10.5vw,78px);letter-spacing:-2.5px}.hero#home .hero-foot{margin-top:48px}body:has(.construction-site)>main{background:rgba(246,246,243,.65)}.site-crane{opacity:.3}.site-excavation,.site-truck,.site-grading{opacity:.26}}
+@media print{.construction-site{display:none}main>.hero#home{min-height:0;padding-top:24px}.hero#home h1{font-size:46px}}
+@media(prefers-reduced-motion:reduce){.workflow-world{transition:none}}
