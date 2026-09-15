@@ -15,10 +15,39 @@ export function rotatePoint(point: Point, angle: number): Point {
 }
 const add = (a: Point, b: Point): Point => ({ x: a.x + b.x, y: a.y + b.y });
 
+// Scroll share -> mechanical timeline. Give the exit and roller their own
+// chapters instead of squeezing both into the final tenth of the page.
+export const workflowScrollChapters: [number, number][] = [
+  [0, 0], [.18, .22], [.38, .46], [.50, .64], [.60, .74],
+  [.70, .90], [.80, .93], [.81, .935], [.96, .995], [1, 1],
+];
+const scrollSpans = workflowScrollChapters.slice(1).map((stop, i) => stop[0] - workflowScrollChapters[i][0]);
+const scrollRates = scrollSpans.map((span, i) => (workflowScrollChapters[i + 1][1] - workflowScrollChapters[i][1]) / span);
+// Monotone cubic interpolation preserves order and continuous speed without
+// overshooting a handoff or restarting the machinery at chapter boundaries.
+const scrollTangents = workflowScrollChapters.map((_, i) => {
+  if (i === 0) return scrollRates[0];
+  if (i === scrollRates.length) return scrollRates[i - 1];
+  const a = 2 * scrollSpans[i] + scrollSpans[i - 1];
+  const b = scrollSpans[i] + 2 * scrollSpans[i - 1];
+  return (a + b) / (a / scrollRates[i - 1] + b / scrollRates[i]);
+});
+export function workflowTime(scroll: number) {
+  const p = clamp01(scroll);
+  for (let i = 0; i < scrollSpans.length; i++) {
+    const [start, from] = workflowScrollChapters[i], [end, to] = workflowScrollChapters[i + 1];
+    if (p > end) continue;
+    const span = scrollSpans[i], t = (p - start) / span, t2 = t * t, t3 = t2 * t;
+    return (2 * t3 - 3 * t2 + 1) * from + (t3 - 2 * t2 + t) * span * scrollTangents[i]
+      + (-2 * t3 + 3 * t2) * to + (t3 - t2) * span * scrollTangents[i + 1];
+  }
+  return 1;
+}
+
 export const workflowPhases = {
   attach: .04, lifted: .10, excavator: .22, loaded: .46, touchdown: .58,
   detach: .61, haul: .64, tip: .74, discharge: .78, emptied: .85,
-  lowered: .90, roller: .94, finished: .995,
+  lowered: .90, truckClear: .93, roller: .935, finished: .995,
 } as const;
 export const workflowGeometry = {
   cargoX: 930, loadingY: 880, truckY: 1300, truckDockX: 896,
@@ -26,8 +55,28 @@ export const workflowGeometry = {
   craneTip: { x: 1034, y: 192 },
 } as const;
 
+export const groundStripCount = 28;
+export function groundSettlement(rollerX: number) {
+  return Array.from({ length: groundStripCount }, (_, i) => {
+    const center = workflowGeometry.fillLeft + (i + .5) * workflowGeometry.fillWidth / groundStripCount;
+    // Small fixed differences in resistance avoid a ruler-straight compression edge.
+    const resistance = Math.sin(i * 1.7) * 4 + Math.sin(i * .63) * 3;
+    return ramp(rollerX + 333 - center - resistance, -12, 40);
+  });
+}
+
+// Source-art trolley outlet (80,377) stays exactly on the live hoist anchor.
+// The bottom of the crane's foundation at pixel y=1205 rests on the site at y=880.
+const craneArtScale = (880 - workflowGeometry.craneTip.y) / (1205 - 377);
+export const craneStructure = {
+  x: workflowGeometry.craneTip.x - 80 * craneArtScale,
+  y: workflowGeometry.craneTip.y - 377 * craneArtScale,
+  width: 1254 * craneArtScale,
+  height: 1254 * craneArtScale,
+} as const;
+
 function vehiclePose(p: number) {
-  const x = keys(p, [[0, 350], [.48, 350], [.55, 896], [.64, 896], [.74, 1700], [.90, 1700], [.95, 2550], [1, 2550]]);
+  const x = keys(p, [[0, 350], [.48, 350], [.55, 896], [.64, 896], [.74, 1700], [.90, 1700], [.93, 3300], [1, 4300]]);
   const tilt = keys(p, [[0, 0], [.74, 0], [.78, -46], [.86, -46], [.90, 0], [1, 0]]);
   return { x, y: workflowGeometry.truckY, tilt,
     wheel: (x - 350) / truckRig.wheelRadius * 180 / Math.PI,
@@ -70,7 +119,7 @@ export function workflowPose(progress: number) {
   const p = clamp01(progress), cargo = containerPose(p), truck = vehiclePose(p);
   const phase = p < .10 ? 'pickup' : p < .22 ? 'lower-to-excavator' : p < .46 ? 'excavate-and-fill'
     : p < .58 ? 'lower-to-truck' : p < .64 ? 'handoff' : p < .74 ? 'haul'
-      : p < .90 ? 'unload' : p < .94 ? 'clear-placement-area' : p < .995 ? 'compact' : 'complete';
+      : p < .90 ? 'unload' : p < .935 ? 'clear-placement-area' : p < .995 ? 'compact' : 'complete';
 
   let extracted = 0, bucketMass = 0, boxAir = 0, received = 0;
   const scoops = [.22, .34].map(start => {
@@ -85,8 +134,11 @@ export function workflowPose(progress: number) {
   const excavatorProgress = p < .22 || p >= .46 ? 0 : scoops[p < .34 ? 0 : 1];
   const excavator = loadingExcavator(excavatorProgress);
   const releasedGround = ramp(p, .78, .85), arrivedGround = ramp(p, .792, .865);
-  const rollerX = keys(p, [[0, 500], [.90, 500], [.94, 1050], [.995, 1540], [1, 1540]]);
-  const compacted = p < .94 ? 0 : clamp01((rollerX + 333 - workflowGeometry.fillLeft) / workflowGeometry.fillWidth);
+  // Truck clears the viewport first; the roller then follows without catching it.
+  const rollerTravel = keys(p, [[0, 500], [.935, 500], [.995, 3000], [1, 3200]]);
+  const rollerX = p < .935 ? 500 : Math.min(rollerTravel, truck.x - 397 - 420);
+  const settlement = groundSettlement(rollerX);
+  const compacted = settlement.reduce((sum, value) => sum + value, 0) / groundStripCount;
   const materials = {
     source: 1 - extracted, bucket: bucketMass, fallingIntoBox: boxAir,
     box: received - releasedGround, fallingOntoGround: releasedGround - arrivedGround,
@@ -118,18 +170,40 @@ export function workflowPose(progress: number) {
   const ramTop = add({ x: truckRig.hingeX, y: truckRig.hingeY }, rotatePoint({ x: 156, y: 16 }, truck.tilt + truckRig.bedRestAngle));
   return { progress: p, phase, cargo, truck: { ...truck, ramTop }, materials,
     crane: { hook, slingTop, eyes, ends, slingPath, attached: p < .61 }, excavator, excavatorParticles, dumpParticles,
-    ground: { deposited: arrivedGround, compacted },
-    roller: { x: rollerX, y: 1300, wheel: (rollerX - 500) / 64 * 180 / Math.PI, opacity: ramp(p, .88, .90) },
+    ground: { deposited: arrivedGround, compacted, settlement },
+    roller: { x: rollerX, y: 1300, wheel: (rollerX - 500) / 64 * 180 / Math.PI, opacity: ramp(p, .93, .935) },
   };
 }
 
-// One camera follows the shared object and operation; no section-sized blank bands.
+// One continuous camera track. Interpolate screen transforms with zero velocity
+// and acceleration at each handoff, including changes between width/height fitting.
 export function workflowCamera(progress: number, width: number, height: number) {
-  const p = clamp01(progress), truck = vehiclePose(p), mobile = width < 761;
-  const x = p >= .64 && p <= .74 ? truck.x + 200 : keys(p, [[0, 1390], [.10, 1370], [.22, 735], [.46, 735], [.58, 1096], [.64, 1096], [.74, 1900], [.90, 1700], [.94, 1640], [1, 1640]]);
-  const y = keys(p, [[0, 590], [.10, 570], [.22, 720], [.46, 720], [.58, 1340], [.74, 1360], [.90, 1390], [1, 1390]]);
-  const viewWidth = keys(p, [[0, mobile ? 1050 : 1400], [.22, mobile ? 900 : 1300], [.46, mobile ? 900 : 1300], [.58, mobile ? 660 : 1200], [.74, mobile ? 700 : 1200], [.94, mobile ? 820 : 1250], [1, mobile ? 820 : 1250]]);
-  const viewHeight = keys(p, [[0, 1000], [.22, 780], [.58, 750], [1, 750]]);
-  const scale = Math.min(width / viewWidth, height / viewHeight);
-  return { scale, x: width * (mobile ? .5 : .60) - x * scale, y: height * .60 - y * scale };
+  const p = clamp01(progress), mobile = width < 761;
+  type CameraStop = [number, number, number, number, number];
+  const stops: CameraStop[] = [
+    [0, 1390, 490, mobile ? 1050 : 1400, 1100],
+    [.10, 1370, 490, mobile ? 1000 : 1360, 1040],
+    [.22, 735, 720, mobile ? 900 : 1300, 780],
+    [.46, 735, 720, mobile ? 900 : 1300, 780],
+    [.58, 1096, 1340, mobile ? 660 : 1200, 750],
+    [.64, 1096, 1348, mobile ? 680 : 1200, 750],
+    [.74, 1900, 1360, mobile ? 700 : 1200, 750],
+    [.90, 1700, 1390, mobile ? 910 : 1125, 675],
+    [.95, 1700, 1390, mobile ? 910 : 1125, 675],
+    [1, 2177, 1350, 600 / .96, 300 / .84],
+  ];
+  const frame = (stop: CameraStop) => {
+    const [at, x, y, viewWidth, viewHeight] = stop;
+    const scale = Math.min(width / viewWidth, height / viewHeight);
+    return { scale, x: width * (mobile || at === 1 ? .5 : .60) - x * scale,
+      y: height * (at === 1 ? .5 : .60) - y * scale };
+  };
+  for (let i = 1; i < stops.length; i++) {
+    if (p > stops[i][0]) continue;
+    const from = frame(stops[i - 1]), to = frame(stops[i]);
+    const t = clamp01((p - stops[i - 1][0]) / (stops[i][0] - stops[i - 1][0]));
+    const ease = t * t * t * (t * (t * 6 - 15) + 10);
+    return { scale: mix(from.scale, to.scale, ease), x: mix(from.x, to.x, ease), y: mix(from.y, to.y, ease) };
+  }
+  return frame(stops[stops.length - 1]);
 }

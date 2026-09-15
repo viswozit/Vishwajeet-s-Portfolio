@@ -9,6 +9,7 @@
 .roller-tire{position:absolute;left:-1px;top:92px;width:128px;height:128px;transform-origin:center}
 .roller-drum{position:absolute;left:269px;top:92px;width:128px;height:128px;transform-origin:center}
 .site-rig-defs{position:absolute;pointer-events:none}
+.completed-building{object-fit:contain;opacity:.43;user-select:none}
 .truck-ink{filter:url(#truck-ink)}
 .truck-wheel{position:absolute;transform-origin:center;border-radius:50%;overflow:hidden}
 .truck-hydraulics{position:absolute;left:0;top:0;width:400px;height:220px;stroke:#656b62;stroke-linecap:round;fill:none}
@@ -22,6 +23,7 @@
 .workflow-fill{position:absolute;left:1480px;top:1450px;width:280px;height:70px}
 .workflow-pile{position:absolute;inset:0;transform-origin:center bottom}
 .workflow-flat{position:absolute;left:1480px;top:1500px;width:280px;height:40px}
+.ground-strip{position:absolute;top:0;height:100%;overflow:hidden;transform-origin:center bottom;mask-image:linear-gradient(90deg,transparent,#000 1px,#000 calc(100% - 1px),transparent)}
 .workflow-platform{position:absolute;left:-20px;top:-10px;width:260px;height:30px;transform-origin:20px 10px;stroke:#656b62;stroke-width:3;fill:none}
 body:has(.construction-site)>header,body:has(.construction-site)>main,body:has(.construction-site)>footer{position:relative;z-index:1}
 body:has(.construction-site)>header{background:rgba(246,246,243,.88)}

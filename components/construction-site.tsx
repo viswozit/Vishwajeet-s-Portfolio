@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { excavatorBucket, truckRig } from '@/lib/site-motion';
-import { clamp01, workflowCamera, workflowGeometry, workflowPose } from '@/lib/construction-workflow';
+import { clamp01, craneStructure, groundStripCount, workflowCamera, workflowGeometry, workflowPose, workflowTime } from '@/lib/construction-workflow';
 import './construction-site.css';
 
 type Crop = [number, number, number, number];
@@ -24,6 +24,11 @@ function Part({ atlas, part, x = 0, y = 0, w, h, className = '' }: { atlas: stri
   return <span className={`site-part ${className}`} data-part={part} style={{ left: x, top: y, width: w, height: h }}><span className="site-sprite" style={{ backgroundImage: `url('/site-${atlas}.webp')`, width: `${1536 / cw * 100}%`, height: `${1024 / ch * 100}%`, left: `${-cx / cw * 100}%`, top: `${-cy / ch * 100}%` }} /></span>;
 }
 
+// Doodle restyle of the client's building; original reference remains in public/site-building.png.
+function Building({ x, y, w, h }: { x: number; y: number; w: number; h: number }) {
+  return <img src="/site-building-doodle.webp" alt="" width={1774} height={887} draggable={false} className="site-part completed-building truck-ink" style={{ left: x, top: y, width: w, height: h }} />;
+}
+
 type SceneElement = HTMLElement | SVGElement;
 
 export default function ConstructionSite() {
@@ -39,7 +44,8 @@ export default function ConstructionSite() {
     const transform = (name: string, value: string) => { n[name]!.style.transform = value; };
     const opacity = (name: string, value: number) => { n[name]!.style.opacity = String(value); };
     const render = () => {
-      const state = workflowPose(progress), camera = workflowCamera(progress, window.innerWidth, window.innerHeight);
+      const time = workflowTime(progress);
+      const state = workflowPose(time), camera = workflowCamera(time, window.innerWidth, window.innerHeight);
       n.root!.dataset.phase = state.phase;
       transform('world', `translate3d(${camera.x}px,${camera.y}px,0) scale(${camera.scale})`);
       const { cargo, crane, excavator: e, truck: t, materials: m, ground, roller } = state;
@@ -80,8 +86,11 @@ export default function ConstructionSite() {
       opacity('locks', cargo.attachment === 'truck' || cargo.attachment === 'tipping-platform' ? 1 : 0);
       transform('pile-height', `scaleY(${ground.deposited})`);
       opacity('pile-height', Math.min(1, ground.deposited * 6));
-      n['pile-clip']!.style.clipPath = `inset(0 0 0 ${ground.compacted * 100}%)`;
-      n['flat-fill']!.style.clipPath = `inset(0 ${(1 - ground.compacted) * 100}% 0 0)`;
+      ground.settlement.forEach((settled, i) => {
+        transform(`soil-${i}`, `scaleY(${1 - settled * .82})`);
+        opacity(`soil-${i}`, 1 - settled);
+        opacity(`compacted-${i}`, settled);
+      });
       opacity('flat-fill', ground.deposited);
       transform('roller', `translate(${roller.x}px,${roller.y}px)`);
       opacity('roller', roller.opacity * .48);
@@ -93,7 +102,7 @@ export default function ConstructionSite() {
       if (document.hidden || disposed) return;
       const dt = Math.min(40, previous ? now - previous : 16);
       previous = now;
-      progress = reduced.matches ? 1 : progress + (target - progress) * (1 - Math.exp(-dt / 90));
+      progress = reduced.matches ? 1 : progress + (target - progress) * (1 - Math.exp(-dt / 150));
       if (Math.abs(target - progress) < .00001 && !reduced.matches) progress = target;
       render();
       if (!reduced.matches && progress !== target) raf = requestAnimationFrame(tick);
@@ -108,7 +117,7 @@ export default function ConstructionSite() {
       if (!document.hidden) { target = readProgress(); progress = reduced.matches ? 1 : target; request(); }
     };
     render();
-    const atlases = ['crane', 'excavator', 'roller', 'truck'];
+    const atlases = ['crane', 'crane-structure', 'excavator', 'roller', 'truck'];
     let loaded = 0;
     const images = atlases.map(name => {
       const image = new Image();
@@ -134,18 +143,17 @@ export default function ConstructionSite() {
   }, []);
 
   return <div className="construction-site" ref={bind('root')} aria-hidden="true">
-    <svg width="0" height="0" className="site-rig-defs"><defs><filter id="truck-ink" x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 .20  0 0 0 0 .22  0 0 0 0 .20  -.223 -.751 -.076 0 1.02" /></filter></defs></svg>
+    <svg width="0" height="0" className="site-rig-defs"><defs><filter id="truck-ink" x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 .20  0 0 0 0 .22  0 0 0 0 .20  -.223 -.751 -.076 1.02 0" /></filter></defs></svg>
     <div className="workflow-world" ref={bind('world')}>
       <div className="site-structure">
         <Part atlas="crane" part="frame" x={900} y={525} w={270} h={185} />
         <Part atlas="roller" part="groundline" x={0} y={880} w={1900} h={40} />
         <Part atlas="roller" part="groundline" x={0} y={1500} w={3000} h={40} />
-        <Part atlas="crane" part="frame" x={1910} y={1155} w={535} h={365} />
         <Part atlas="crane" part="materials" x={2290} y={1420} w={170} h={100} />
       </div>
+      <Building x={1727} y={1200} w={900} h={300} />
       <div className="site-crane">
-        <Part atlas="crane" part="tower" x={1696} y={155} w={180} h={736} />
-        <div className="site-joint" style={{ transform: 'translate(1794px,180px) scaleX(-1)' }}><Part atlas="crane" part="jib" x={-31} y={-59} w={826} h={122} /></div>
+        <img src="/site-crane-structure.webp" alt="" width={1254} height={1254} draggable={false} className="site-part truck-ink" style={{ left: craneStructure.x, top: craneStructure.y, width: craneStructure.width, height: craneStructure.height }} />
       </div>
       <div className="site-excavation">
         <div ref={bind('trench')} className="site-joint"><Part atlas="roller" part="trench" x={590} y={865} w={230} h={78} /></div>
@@ -161,8 +169,12 @@ export default function ConstructionSite() {
         </div>
       </div>
       <div className="workflow-placement">
-        <div ref={bind('pile-clip')} className="workflow-fill"><div ref={bind('pile-height')} className="workflow-pile"><Part atlas="excavator" part="earth" w={280} h={70} /></div></div>
-        <div ref={bind('flat-fill')} className="workflow-flat"><Part atlas="roller" part="flat" w={280} h={40} /></div>
+        <div className="workflow-fill"><div ref={bind('pile-height')} className="workflow-pile">
+          {Array.from({ length: groundStripCount }, (_, i) => <div key={i} ref={bind(`soil-${i}`)} className="ground-strip" style={{ left: i * 280 / groundStripCount - 1, width: 280 / groundStripCount + 2 }}><Part atlas="excavator" part="earth" x={1 - i * 280 / groundStripCount} w={280} h={70} /></div>)}
+        </div></div>
+        <div ref={bind('flat-fill')} className="workflow-flat">
+          {Array.from({ length: groundStripCount }, (_, i) => <div key={i} ref={bind(`compacted-${i}`)} className="ground-strip" style={{ left: i * 280 / groundStripCount - 1, width: 280 / groundStripCount + 2 }}><Part atlas="roller" part="flat" x={1 - i * 280 / groundStripCount} w={280} h={40} /></div>)}
+        </div>
       </div>
       <div ref={bind('truck')} className="site-joint site-truck truck-body">
         <Part atlas="truck" part="truckChassis" y={29} w={400} h={169.1} className="truck-ink" />
